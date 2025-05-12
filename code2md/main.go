@@ -38,7 +38,7 @@ Markdownのコードブロック形式で標準出力するコマンドライン
 	}
 
 	root.Flags().StringSliceVarP(&ignorePatterns, "ignore", "i", nil,
-		"無視する **ディレクトリ名** のパターン (ワイルドカード可)")
+		"無視するディレクトリ名やファイル名のパターン (カンマ区切りで複数指定可: --ignore \"*.md,*.py,*.json\")")
 	root.Flags().BoolVar(&includeDotfiles, "include-dotfiles", false,
 		"'.'で始まるファイルやディレクトリを処理対象に含める")
 	root.Flags().BoolVar(&noDefaultIgnores, "no-default-ignores", false,

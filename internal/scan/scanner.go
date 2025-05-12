@@ -38,8 +38,8 @@ func isIgnored(name string, patterns []string) bool {
 				return true
 			}
 		} else {
-			// 完全一致
-			if p == name {
+			// 完全一致またはファイル名に含まれるパターン
+			if p == name || strings.Contains(name, p) {
 				return true
 			}
 		}
@@ -60,14 +60,14 @@ func Gather(paths []string, opt Options) ([]string, error) {
 		// 絶対パスに変換
 		absPath, err := filepath.Abs(p)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "警告: パス '%s' の解決中にエラー: %v。スキップします。\n", p, err)
+			fmt.Fprintf(os.Stderr, "Warning: Error resolving path '%s': %v. Skipping.\n", p, err)
 			continue
 		}
 
 		// パスの存在確認
 		info, err := os.Stat(absPath)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "警告: 指定されたパス '%s' が見つかりません。スキップします。\n", p)
+			fmt.Fprintf(os.Stderr, "Warning: Path '%s' not found. Skipping.\n", p)
 			continue
 		}
 
@@ -78,6 +78,13 @@ func Gather(paths []string, opt Options) ([]string, error) {
 			if !opt.IncludeDotfiles && len(name) > 0 && name[0] == '.' {
 				continue
 			}
+
+			// ファイル名がパターンに一致するかチェック
+			if isIgnored(name, ignore) {
+				fmt.Fprintf(os.Stderr, "Ignored (file pattern): %s\n", absPath)
+				continue
+			}
+
 			out = append(out, absPath)
 			continue
 		}
@@ -85,20 +92,20 @@ func Gather(paths []string, opt Options) ([]string, error) {
 		// ディレクトリ自体がパターンに一致するかチェック
 		dirName := filepath.Base(absPath)
 		if !opt.IncludeDotfiles && len(dirName) > 0 && dirName[0] == '.' {
-			fmt.Fprintf(os.Stderr, "無視 (ドット直接指定): %s\n", p)
+			fmt.Fprintf(os.Stderr, "Ignored (dotdir): %s\n", p)
 			continue
 		}
 
 		// ディレクトリ自体がパターンに一致するかチェック
 		if isIgnored(dirName, ignore) {
-			fmt.Fprintf(os.Stderr, "無視 (パターン直接指定): %s\n", p)
+			fmt.Fprintf(os.Stderr, "Ignored (directory pattern): %s\n", p)
 			continue
 		}
 
 		// ディレクトリを再帰的に探索
 		if err := filepath.WalkDir(absPath, func(path string, d fs.DirEntry, err error) error {
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "警告: '%s' へのアクセス中にエラー: %v。スキップします。\n", path, err)
+				fmt.Fprintf(os.Stderr, "Warning: Error accessing '%s': %v. Skipping.\n", path, err)
 				return nil // エラーを無視して続行
 			}
 
@@ -112,19 +119,26 @@ func Gather(paths []string, opt Options) ([]string, error) {
 				return nil
 			}
 
-			// ignore pattern
+			// ignore pattern - ディレクトリの場合
 			if d.IsDir() && isIgnored(name, ignore) {
-				fmt.Fprintf(os.Stderr, "無視 (ディレクトリ): %s\n", path)
+				fmt.Fprintf(os.Stderr, "Ignored (directory): %s\n", path)
 				return filepath.SkipDir
 			}
 
+			// ファイルの場合もパターンチェック
 			if !d.IsDir() {
-				fmt.Fprintf(os.Stderr, "load %s\n", path)
+				// ファイル名がパターンに一致するかチェック
+				if isIgnored(name, ignore) {
+					fmt.Fprintf(os.Stderr, "Ignored (file): %s\n", path)
+					return nil
+				}
+
+				fmt.Fprintf(os.Stderr, "Loading %s\n", path)
 				out = append(out, path)
 			}
 			return nil
 		}); err != nil {
-			fmt.Fprintf(os.Stderr, "警告: ディレクトリ '%s' の探索中にエラー: %v\n", absPath, err)
+			fmt.Fprintf(os.Stderr, "Warning: Error exploring directory '%s': %v\n", absPath, err)
 		}
 	}
 	return out, nil

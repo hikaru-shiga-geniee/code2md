@@ -31,7 +31,7 @@ func isBinary(data []byte) bool {
 func Print(w io.Writer, files []string) error {
 	cwd, err := os.Getwd()
 	if err != nil {
-		return fmt.Errorf("カレントディレクトリの取得に失敗: %w", err)
+		return fmt.Errorf("Failed to get current directory: %w", err)
 	}
 
 	for _, filePath := range files {
@@ -45,13 +45,13 @@ func Print(w io.Writer, files []string) error {
 		// ファイル内容を読み込み
 		data, err := os.ReadFile(filePath)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "警告: ファイル '%s' の読み込み中にエラー: %v。スキップします。\n", relPath, err)
+			fmt.Fprintf(os.Stderr, "Warning: Error reading file '%s': %v. Skipping.\n", relPath, err)
 			continue
 		}
 
 		// バイナリファイルのチェック
 		if isBinary(data) {
-			fmt.Fprintf(os.Stderr, "警告: ファイル '%s' はUTF-8テキストとして読み込めませんでした。スキップします。\n", relPath)
+			fmt.Fprintf(os.Stderr, "Warning: File '%s' could not be read as UTF-8 text. Skipping.\n", relPath)
 			continue
 		}
 
