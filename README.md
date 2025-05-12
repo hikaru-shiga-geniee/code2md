@@ -129,6 +129,3 @@ code2md src/ > output.md
 
 [MITライセンス](LICENSE)
 
-## 謝辞
-
-このプロジェクトは、Python版 `code2md` を元にGo言語に移植されました。 
