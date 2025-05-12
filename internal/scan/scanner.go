@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/bmatcuk/doublestar/v4"
 )
@@ -47,6 +48,21 @@ func isIgnored(name string, patterns []string) bool {
 	return false
 }
 
+// getFileStats は、ファイルの行数、単語数、文字数を計算します
+func getFileStats(path string) (lines, words, chars int, err error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+
+	content := string(data)
+	lines = len(strings.Split(content, "\n"))
+	words = len(strings.Fields(content))
+	chars = utf8.RuneCountInString(content)
+
+	return lines, words, chars, nil
+}
+
 // Gather は、指定されたパスから条件に一致するファイルのリストを収集します
 func Gather(paths []string, opt Options) ([]string, error) {
 	// 無視パターンの準備
@@ -83,6 +99,13 @@ func Gather(paths []string, opt Options) ([]string, error) {
 			if isIgnored(name, ignore) {
 				fmt.Fprintf(os.Stderr, "Ignored (file pattern): %s\n", absPath)
 				continue
+			}
+
+			// ファイルの統計情報を取得して表示
+			if lines, words, chars, err := getFileStats(absPath); err == nil {
+				fmt.Fprintf(os.Stderr, "Loading %s (%d lines, %d words, %d characters)\n", absPath, lines, words, chars)
+			} else {
+				fmt.Fprintf(os.Stderr, "Loading %s\n", absPath)
 			}
 
 			out = append(out, absPath)
@@ -133,7 +156,13 @@ func Gather(paths []string, opt Options) ([]string, error) {
 					return nil
 				}
 
-				fmt.Fprintf(os.Stderr, "Loading %s\n", path)
+				// ファイルの統計情報を取得して表示
+				if lines, words, chars, err := getFileStats(path); err == nil {
+					fmt.Fprintf(os.Stderr, "Loading %s (%d lines, %d words, %d characters)\n", path, lines, words, chars)
+				} else {
+					fmt.Fprintf(os.Stderr, "Loading %s\n", path)
+				}
+
 				out = append(out, path)
 			}
 			return nil

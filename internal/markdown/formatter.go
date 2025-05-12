@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"unicode/utf8"
 
 	"github.com/your-org/code2md/internal/lang"
@@ -34,6 +35,8 @@ func Print(w io.Writer, files []string) error {
 		return fmt.Errorf("Failed to get current directory: %w", err)
 	}
 
+	var totalWords, totalChars, totalLines int
+
 	for _, filePath := range files {
 		// カレントディレクトリからの相対パスを取得
 		relPath, err := filepath.Rel(cwd, filePath)
@@ -58,9 +61,23 @@ func Print(w io.Writer, files []string) error {
 		// 言語タグを取得
 		langTag := lang.Detect(filePath)
 
+		// ファイルの統計情報を計算
+		content := string(data)
+		lines := strings.Split(content, "\n")
+		words := len(strings.Fields(content))
+		chars := utf8.RuneCountInString(content)
+
+		// 統計を加算
+		totalLines += len(lines)
+		totalWords += words
+		totalChars += chars
+
 		// Markdownコードブロックとして出力
-		fmt.Fprintf(w, "```%s:%s\n%s\n```\n\n", langTag, relPath, string(data))
+		fmt.Fprintf(w, "```%s:%s\n%s\n```\n\n", langTag, relPath, content)
 	}
+
+	// 最終的な統計情報を標準エラー出力に出力
+	fmt.Fprintf(os.Stderr, "Total: %d lines, %d words, %d characters\n", totalLines, totalWords, totalChars)
 
 	return nil
 }
