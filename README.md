@@ -135,3 +135,24 @@ code2md src/ > output.md
 
 [MITライセンス](LICENSE)
 
+## リリース方法
+
+このプロジェクトはGitHub ActionsとGoReleaserを使用して、クロスプラットフォーム（Windows、macOS、Linux）向けのバイナリを自動的にビルドしリリースします。
+
+リリースするには、以下の手順に従ってください：
+
+1. コードの変更をコミットしてプッシュします
+   ```bash
+   git add .
+   git commit -m "リリース準備"
+   git push origin main
+   ```
+
+2. 新しいバージョンタグを作成してプッシュします
+   ```bash
+   git tag v0.1.0  # バージョン番号は適宜変更してください
+   git push origin v0.1.0
+   ```
+
+3. GitHub Actionsが自動的に実行され、リリースページに各プラットフォーム向けのバイナリが公開されます
+
