@@ -1,0 +1,45 @@
+# Go用の.gitignore
+
+# バイナリファイル
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# テスト用バイナリ
+*.test
+
+# カバレッジファイル
+*.out
+
+# 依存関係ディレクトリ（vendorディレクトリを使用している場合は除外する）
+/vendor/
+
+# Go Modules
+go.work
+
+# ビルド成果物
+/bin/
+/dist/
+
+# ローカル開発環境
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# デバッグファイル
+debug
+
+# IDEとエディタの設定
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS固有のファイル
+.DS_Store
+Thumbs.db 
