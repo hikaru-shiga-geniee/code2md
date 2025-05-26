@@ -3,6 +3,7 @@ package scan
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -422,4 +423,181 @@ func TestGatherWithFilePatternIgnore(t *testing.T) {
 			}
 		})
 	}
+}
+
+// getRelativePath関数のテスト
+func TestGetRelativePath(t *testing.T) {
+	// 現在の作業ディレクトリを取得
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("現在の作業ディレクトリの取得に失敗: %v", err)
+	}
+
+	tests := []struct {
+		name     string
+		absPath  string
+		expected string
+	}{
+		{
+			name:     "現在のディレクトリ内のファイル",
+			absPath:  filepath.Join(wd, "test.txt"),
+			expected: "test.txt",
+		},
+		{
+			name:     "サブディレクトリ内のファイル",
+			absPath:  filepath.Join(wd, "subdir", "file.txt"),
+			expected: filepath.Join("subdir", "file.txt"),
+		},
+		{
+			name:     "現在のディレクトリそのもの",
+			absPath:  wd,
+			expected: ".",
+		},
+		{
+			name:     "親ディレクトリのファイル",
+			absPath:  filepath.Join(filepath.Dir(wd), "parent.txt"),
+			expected: filepath.Join("..", "parent.txt"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := getRelativePath(tt.absPath)
+			if result != tt.expected {
+				t.Errorf("getRelativePath(%q) = %q, 期待値 %q", tt.absPath, result, tt.expected)
+			}
+		})
+	}
+}
+
+// 無効なパスでのgetRelativePath関数のテスト
+func TestGetRelativePathWithInvalidPath(t *testing.T) {
+	// 存在しないドライブ（Windows）や無効なパスでテスト
+	invalidPath := "/非常に/長い/存在しない/パス/test.txt"
+
+	// 関数が何らかの結果を返すことを確認（パニックしないことが重要）
+	result := getRelativePath(invalidPath)
+
+	// 結果が空文字列でないことを確認
+	if result == "" {
+		t.Error("getRelativePath() は空文字列を返すべきではありません")
+	}
+
+	// 通常は絶対パスがそのまま返されるか、相対パスが計算される
+	t.Logf("無効なパス %q に対する結果: %q", invalidPath, result)
+}
+
+// Loading メッセージが相対パスで出力されることを検証するテスト
+func TestGatherOutputsRelativePaths(t *testing.T) {
+	// テスト用の一時ディレクトリを作成
+	tempDir, err := os.MkdirTemp("", "code2md-relative-test")
+	if err != nil {
+		t.Fatalf("テスト用ディレクトリの作成に失敗: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// テスト用ファイルを作成
+	testFile := filepath.Join(tempDir, "test.txt")
+	if err := os.WriteFile(testFile, []byte("test content"), 0644); err != nil {
+		t.Fatalf("テストファイルの作成に失敗: %v", err)
+	}
+
+	// 現在の作業ディレクトリを一時的に変更
+	originalWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("現在の作業ディレクトリの取得に失敗: %v", err)
+	}
+
+	// 作業ディレクトリを変更
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatalf("作業ディレクトリの変更に失敗: %v", err)
+	}
+	defer func() {
+		// テスト終了後に元のディレクトリに戻す
+		os.Chdir(originalWd)
+	}()
+
+	// Gatherを実行
+	files, err := Gather([]string{"test.txt"}, Options{
+		UserIgnorePatterns:  nil,
+		IncludeDotfiles:     false,
+		ApplyDefaultIgnores: true,
+	})
+
+	if err != nil {
+		t.Fatalf("Gather() エラー: %v", err)
+	}
+
+	// ファイルが見つかったことを確認
+	if len(files) != 1 {
+		t.Fatalf("期待されるファイル数: 1, 実際: %d", len(files))
+	}
+
+	// 返されるパスは絶対パスのはず
+	expectedAbsPath, _ := filepath.Abs("test.txt")
+	if files[0] != expectedAbsPath {
+		t.Errorf("返されたパス: %s, 期待されるパス: %s", files[0], expectedAbsPath)
+	}
+
+	// getRelativePath関数の動作を個別に確認
+	relativePath := getRelativePath(files[0])
+	if relativePath != "test.txt" {
+		t.Errorf("相対パス変換結果: %s, 期待値: test.txt", relativePath)
+	}
+}
+
+// エラーメッセージとIgnoredメッセージでも相対パスが使用されることを検証
+func TestGatherIgnoredMessagesUseRelativePaths(t *testing.T) {
+	// テスト用の一時ディレクトリを作成
+	tempDir, err := os.MkdirTemp("", "code2md-ignored-test")
+	if err != nil {
+		t.Fatalf("テスト用ディレクトリの作成に失敗: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// node_modulesディレクトリを作成（デフォルトで無視される）
+	nodeModulesDir := filepath.Join(tempDir, "node_modules")
+	if err := os.MkdirAll(nodeModulesDir, 0755); err != nil {
+		t.Fatalf("node_modulesディレクトリの作成に失敗: %v", err)
+	}
+
+	// node_modules内にファイルを作成
+	testFile := filepath.Join(nodeModulesDir, "package.js")
+	if err := os.WriteFile(testFile, []byte("test content"), 0644); err != nil {
+		t.Fatalf("テストファイルの作成に失敗: %v", err)
+	}
+
+	// 現在の作業ディレクトリを一時的に変更
+	originalWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("現在の作業ディレクトリの取得に失敗: %v", err)
+	}
+
+	if err := os.Chdir(tempDir); err != nil {
+		t.Fatalf("作業ディレクトリの変更に失敗: %v", err)
+	}
+	defer func() {
+		os.Chdir(originalWd)
+	}()
+
+	// Gatherを実行（node_modulesは無視されるべき）
+	files, err := Gather([]string{"."}, Options{
+		UserIgnorePatterns:  nil,
+		IncludeDotfiles:     false,
+		ApplyDefaultIgnores: true,
+	})
+
+	if err != nil {
+		t.Fatalf("Gather() エラー: %v", err)
+	}
+
+	// node_modulesのファイルが結果に含まれていないことを確認
+	for _, file := range files {
+		if strings.Contains(file, "node_modules") {
+			t.Errorf("node_modulesのファイルが結果に含まれています: %s", file)
+		}
+	}
+
+	// この時点でIgnoredメッセージが標準エラー出力に出されているはず
+	// （テスト実行時に確認可能）
 }

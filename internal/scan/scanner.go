@@ -48,6 +48,23 @@ func isIgnored(name string, patterns []string) bool {
 	return false
 }
 
+// getRelativePath は、指定されたパスを現在の作業ディレクトリからの相対パスに変換します
+func getRelativePath(absPath string) string {
+	wd, err := os.Getwd()
+	if err != nil {
+		// 現在の作業ディレクトリが取得できない場合は絶対パスをそのまま返す
+		return absPath
+	}
+
+	relPath, err := filepath.Rel(wd, absPath)
+	if err != nil {
+		// 相対パスが計算できない場合は絶対パスをそのまま返す
+		return absPath
+	}
+
+	return relPath
+}
+
 // getFileStats は、ファイルの行数、単語数、文字数を計算します
 func getFileStats(path string) (lines, words, chars int, err error) {
 	data, err := os.ReadFile(path)
@@ -103,9 +120,9 @@ func Gather(paths []string, opt Options) ([]string, error) {
 
 			// ファイルの統計情報を取得して表示
 			if lines, words, chars, err := getFileStats(absPath); err == nil {
-				fmt.Fprintf(os.Stderr, "Loading %s (%d lines, %d words, %d characters)\n", absPath, lines, words, chars)
+				fmt.Fprintf(os.Stderr, "Loading %s (%d lines, %d words, %d characters)\n", getRelativePath(absPath), lines, words, chars)
 			} else {
-				fmt.Fprintf(os.Stderr, "Loading %s\n", absPath)
+				fmt.Fprintf(os.Stderr, "Loading %s\n", getRelativePath(absPath))
 			}
 
 			out = append(out, absPath)
@@ -158,9 +175,9 @@ func Gather(paths []string, opt Options) ([]string, error) {
 
 				// ファイルの統計情報を取得して表示
 				if lines, words, chars, err := getFileStats(path); err == nil {
-					fmt.Fprintf(os.Stderr, "Loading %s (%d lines, %d words, %d characters)\n", path, lines, words, chars)
+					fmt.Fprintf(os.Stderr, "Loading %s (%d lines, %d words, %d characters)\n", getRelativePath(path), lines, words, chars)
 				} else {
-					fmt.Fprintf(os.Stderr, "Loading %s\n", path)
+					fmt.Fprintf(os.Stderr, "Loading %s\n", getRelativePath(path))
 				}
 
 				out = append(out, path)
